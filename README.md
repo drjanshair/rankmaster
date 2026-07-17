@@ -55,7 +55,7 @@ To use MySQL, add this entry to `addons/sourcemod/configs/databases.cfg` before 
 
 Every player starts at `1000` rating and has a visible tier: Rookie, Bronze, Silver, Gold, Master, Elite, or Legend. All-time leaderboard position is based on persistent rating, not raw lifetime stat volume.
 
-At match end, RankMaster calculates an Elo-style expected result from each team's average rating. The match result creates a bounded team rating pool: winners gain rating and losers lose rating. Individual performance changes how that pool is split inside each team, so a strong losing player can lose less, but cannot gain rating from a loss.
+At match end, RankMaster calculates an Elo-style expected result from each team's average rating. The normal win/loss delta is scaled by the final score margin, so a blowout moves more rating than a close result without allowing a winner to lose rating. The result creates a bounded team rating pool. Individual performance changes how that pool is split inside each team, so a strong losing player can lose less, but cannot gain rating from a loss.
 
 Map impact is contextual rather than a flat kill/death formula. It considers:
 
@@ -63,7 +63,7 @@ Map impact is contextual rather than a flat kill/death formula. It considers:
 - damage contribution, flash assists, trade kills, and traded-player credit;
 - deaths, especially early deaths;
 - utility damage, enemies flashed, bomb plants, bomb defuses, and clutches;
-- reduced value for exit-style kills in heavily losing rounds.
+- symmetric clawbacks for low-signal desperation and last-opponent cleanup kills.
 
 The current tier thresholds are:
 
@@ -77,7 +77,9 @@ The current tier thresholds are:
 | Elite | 1600+ |
 | Legend | 1800+ |
 
-The main tuning points are `CalculateKillValue()`, `ApplyKillImpact()`, `ApplyMatchRatingUpdate()`, `GetMatchKFactor()`, and `GetTier()` in the source file.
+The entry point and gameplay events live in `scripting/rankmaster.sp`. Persistence, impact calculation, rating, and UI code are split into the `.inc` files under `scripting/rankmaster/` and are compiled into the same plugin.
+
+The main tuning points are `CalculateKillValue()` and `ApplyKillImpact()` in `impact.inc`, `ApplyMatchRatingUpdate()` and `GetMatchKFactor()` in `rating.inc`, and `GetTier()` in `ui.inc`.
 
 ## Scope
 
