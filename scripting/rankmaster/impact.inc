@@ -185,7 +185,7 @@ void ResetRoundContext()
 	}
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		g_RoundParticipant[client] = false;
+		g_RoundTeam[client] = 0;
 		g_RoundKills[client] = 0;
 		g_RoundDesperationImpact[client] = 0.0;
 		g_RoundCleanupImpact[client] = 0.0;

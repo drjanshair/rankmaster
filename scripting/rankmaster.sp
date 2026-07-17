@@ -58,7 +58,7 @@ bool g_Loaded[MAXPLAYERS + 1];
 bool g_MapSaved[MAXPLAYERS + 1];
 bool g_Finalized;
 bool g_RoundTracked;
-bool g_RoundParticipant[MAXPLAYERS + 1];
+int g_RoundTeam[MAXPLAYERS + 1];
 
 ConVar g_GameType;
 ConVar g_GameMode;
@@ -210,7 +210,10 @@ public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		g_RoundParticipant[client] = IsTrackingClient(client);
+		if (IsTrackingClient(client))
+		{
+			g_RoundTeam[client] = GetClientTeam(client);
+		}
 	}
 }
 
@@ -388,7 +391,12 @@ bool IsTrackingClient(int client)
 
 bool IsRoundTrackingClient(int client)
 {
-	return client > 0 && client <= MaxClients && g_RoundTracked && g_RoundParticipant[client] && IsTrackingClient(client);
+	return client > 0
+		&& client <= MaxClients
+		&& g_RoundTracked
+		&& g_RoundTeam[client] != 0
+		&& IsTrackingClient(client)
+		&& GetClientTeam(client) == g_RoundTeam[client];
 }
 
 bool IsHumanClient(int client)
@@ -413,6 +421,7 @@ bool RequirePlayer(int client)
 
 void ResetPlayer(int client)
 {
+	g_RoundTeam[client] = 0;
 	g_Loaded[client] = false;
 	g_Matches[client] = 0;
 	g_Rating[client] = 1000.0;
