@@ -57,6 +57,8 @@ int g_TotalRoundKills;
 bool g_Loaded[MAXPLAYERS + 1];
 bool g_MapSaved[MAXPLAYERS + 1];
 bool g_Finalized;
+bool g_RoundTracked;
+bool g_RoundParticipant[MAXPLAYERS + 1];
 
 ConVar g_GameType;
 ConVar g_GameMode;
@@ -156,7 +158,8 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 	int assister = GetClientOfUserId(event.GetInt("assister"));
 	bool headshot = event.GetBool("headshot");
 	bool flashAssist = event.GetBool("assistedflash");
-	bool validAssister = assister > 0 && IsTrackingClient(assister) && assister != attacker && assister != victim;
+	bool validAssister = IsValidAssistClient(assister, attacker, victim);
+	bool validFlashAssist = flashAssist && validAssister;
 
 	AddStat(victim, Stat_Deaths, 1);
 	if (ValidOpponent(attacker, victim))
@@ -170,7 +173,7 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 		int victimAliveBefore = CountAliveOnTeam(victimTeam) + 1;
 		bool traded = g_LastKiller[attackerTeam] == victim && GetGameTime() - g_LastDeathTime[attackerTeam] <= 5.0;
 		float killValue = CalculateKillValue(attacker, victim, headshot);
-		ApplyKillImpact(attacker, victim, validAssister ? assister : 0, killValue, flashAssist, traded);
+		ApplyKillImpact(attacker, victim, validAssister ? assister : 0, killValue, validFlashAssist, traded);
 
 		if (attackerAlive == 1 && victimAliveBefore >= 3)
 		{
@@ -187,10 +190,11 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 		g_LastKiller[victimTeam] = attacker;
 		g_LastVictim[victimTeam] = victim;
 		g_LastDeathTime[victimTeam] = GetGameTime();
-	}
-	if (validAssister)
-	{
-		AddStat(assister, Stat_Assists, 1);
+
+		if (validAssister)
+		{
+			AddStat(assister, Stat_Assists, 1);
+		}
 	}
 	UpdateClutchCandidates();
 }
@@ -198,6 +202,16 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	ResetRoundContext();
+	g_RoundTracked = CanTrackCurrentRound();
+	if (!g_RoundTracked)
+	{
+		return;
+	}
+
+	for (int client = 1; client <= MaxClients; client++)
+	{
+		g_RoundParticipant[client] = IsTrackingClient(client);
+	}
 }
 
 public void Event_WeaponFire(Event event, const char[] name, bool dontBroadcast)
@@ -273,7 +287,7 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	int winner = event.GetInt("winner");
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		if (!IsTrackingClient(client)) continue;
+		if (!IsRoundTrackingClient(client)) continue;
 		AddStat(client, Stat_Rounds, 1);
 		if (GetClientTeam(client) == winner) AddStat(client, Stat_RoundWins, 1);
 		if (GetClientTeam(client) != winner && g_RoundDesperationImpact[client] > 0.0)
@@ -322,12 +336,17 @@ void FinalizeMatch(bool display)
 
 void AddStat(int client, Stat stat, int amount)
 {
-	if (!IsTrackingClient(client)) return;
+	if (!IsRoundTrackingClient(client)) return;
 	g_MapStats[client][stat] += amount;
 	g_AllStats[client][stat] += amount;
 }
 
 bool ShouldTrack()
+{
+	return g_RoundTracked && !g_Finalized;
+}
+
+bool CanTrackCurrentRound()
 {
 	if (g_Finalized) return false;
 	if (GameRules_GetProp("m_bWarmupPeriod") != 0) return false;
@@ -348,12 +367,28 @@ bool ShouldTrack()
 
 bool ValidOpponent(int attacker, int victim)
 {
-	return IsTrackingClient(attacker) && IsTrackingClient(victim) && attacker != victim && GetClientTeam(attacker) != GetClientTeam(victim);
+	return IsRoundTrackingClient(attacker) && IsRoundTrackingClient(victim) && attacker != victim && GetClientTeam(attacker) != GetClientTeam(victim);
+}
+
+bool IsValidAssistClient(int assister, int attacker, int victim)
+{
+	return IsRoundTrackingClient(assister)
+		&& IsRoundTrackingClient(attacker)
+		&& IsRoundTrackingClient(victim)
+		&& assister != attacker
+		&& assister != victim
+		&& GetClientTeam(assister) == GetClientTeam(attacker)
+		&& GetClientTeam(assister) != GetClientTeam(victim);
 }
 
 bool IsTrackingClient(int client)
 {
 	return IsHumanClient(client) && g_Loaded[client] && (GetClientTeam(client) == CS_TEAM_T || GetClientTeam(client) == CS_TEAM_CT);
+}
+
+bool IsRoundTrackingClient(int client)
+{
+	return client > 0 && client <= MaxClients && g_RoundTracked && g_RoundParticipant[client] && IsTrackingClient(client);
 }
 
 bool IsHumanClient(int client)

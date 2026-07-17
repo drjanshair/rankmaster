@@ -17,7 +17,7 @@ float ClampFloat(float value, float minimum, float maximum)
 
 void AddImpact(int client, float amount)
 {
-	if (!IsTrackingClient(client)) return;
+	if (!IsRoundTrackingClient(client)) return;
 	g_MapImpact[client] += amount;
 }
 
@@ -80,7 +80,7 @@ void ApplyKillImpact(int attacker, int victim, int assister, float killValue, bo
 {
 	float killerShare = 0.60;
 	float damageShare = 0.25;
-	float flashShare = flashAssist && assister > 0 ? 0.10 : 0.0;
+	float flashShare = flashAssist && IsRoundTrackingClient(assister) ? 0.10 : 0.0;
 	float tradeShare = traded ? 0.10 : 0.0;
 	killerShare += 1.0 - (killerShare + damageShare + flashShare + tradeShare);
 
@@ -93,7 +93,7 @@ void ApplyKillImpact(int attacker, int victim, int assister, float killValue, bo
 	if (tradeShare > 0.0)
 	{
 		AddImpact(attacker, killValue * tradeShare);
-		if (IsTrackingClient(g_LastVictim[GetClientTeam(attacker)]))
+		if (IsRoundTrackingClient(g_LastVictim[GetClientTeam(attacker)]))
 		{
 			AddImpact(g_LastVictim[GetClientTeam(attacker)], killValue * 0.20);
 		}
@@ -108,7 +108,7 @@ void DistributeDamageImpact(int killer, int victim, float impact)
 	int totalDamage;
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		if (IsTrackingClient(client) && GetClientTeam(client) == killerTeam)
+		if (IsRoundTrackingClient(client) && GetClientTeam(client) == killerTeam)
 		{
 			totalDamage += g_RoundDamage[client][victim];
 		}
@@ -122,7 +122,7 @@ void DistributeDamageImpact(int killer, int victim, float impact)
 
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		if (IsTrackingClient(client) && GetClientTeam(client) == killerTeam && g_RoundDamage[client][victim] > 0)
+		if (IsRoundTrackingClient(client) && GetClientTeam(client) == killerTeam && g_RoundDamage[client][victim] > 0)
 		{
 			AddImpact(client, impact * float(g_RoundDamage[client][victim]) / float(totalDamage));
 		}
@@ -134,7 +134,7 @@ int CountAliveOnTeam(int team)
 	int count;
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		if (IsTrackingClient(client) && GetClientTeam(client) == team && IsPlayerAlive(client))
+		if (IsRoundTrackingClient(client) && GetClientTeam(client) == team && IsPlayerAlive(client))
 		{
 			count++;
 		}
@@ -154,7 +154,7 @@ void UpdateClutchCandidateForTeam(int team, int opponentTeam)
 	int aliveCount;
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		if (IsTrackingClient(client) && GetClientTeam(client) == team && IsPlayerAlive(client))
+		if (IsRoundTrackingClient(client) && GetClientTeam(client) == team && IsPlayerAlive(client))
 		{
 			aliveClient = client;
 			aliveCount++;
@@ -175,6 +175,7 @@ int MaxInt(int first, int second)
 
 void ResetRoundContext()
 {
+	g_RoundTracked = false;
 	g_TotalRoundKills = 0;
 	for (int team = 0; team < 4; team++)
 	{
@@ -184,6 +185,7 @@ void ResetRoundContext()
 	}
 	for (int client = 1; client <= MaxClients; client++)
 	{
+		g_RoundParticipant[client] = false;
 		g_RoundKills[client] = 0;
 		g_RoundDesperationImpact[client] = 0.0;
 		g_RoundCleanupImpact[client] = 0.0;

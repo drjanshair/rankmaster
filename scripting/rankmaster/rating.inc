@@ -66,7 +66,8 @@ float GetMatchMarginMultiplier()
 		return 1.0;
 	}
 
-	return 0.5 + 0.5 * (float(scoreDifference) / float(winnerScore));
+	float marginRatio = float(scoreDifference) / float(winnerScore);
+	return 0.75 + ClampFloat(marginRatio, 0.0, 1.0) * 0.50;
 }
 
 float GetMatchKFactor(int averageRatedMatches)
